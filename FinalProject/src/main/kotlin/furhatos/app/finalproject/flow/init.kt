@@ -12,7 +12,7 @@ import furhatos.flow.kotlin.users
 val Init: State = state {
     init {
         /** Set our default interaction parameters */
-        users.setSimpleEngagementPolicy(1.2, 1.7,2)
+        users.setSimpleEngagementPolicy(DISTANCE_TO_ENGAGE,MAX_NUMBER_OF_USERS)
 
         goto(Idle)
     }
