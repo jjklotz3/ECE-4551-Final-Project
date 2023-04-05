@@ -17,3 +17,4 @@ Once all 6 games are completed, the robot and participant will say goodbye and t
 ## Usage
 Max number of users is set to: 1
 Requires a person to control the robot in real-time through the interaction. Also requires a microphone connected to the Furhat robot, so it is able to listen to the participant.
+To access mainfile, FinalProject -> src -> main -> kotlin/furhatos/app/finalproject -> flow -> main -> idle.kt
