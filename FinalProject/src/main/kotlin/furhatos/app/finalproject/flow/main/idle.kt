@@ -515,7 +515,11 @@ val HighGameDecision = state(parent = BackgroundGamesHigh) {
         }
         else {
             if (switchL == 1 || switchH == 1) {
-                goto(Ending)
+                if (hasnoname == true) {
+                    goto(endingnoname)
+                } else {
+                    goto(endingname)
+                }
             } else {
                 if (hasnoname == true) {
                     goto(Breaknoname)
@@ -548,7 +552,7 @@ fun LowGameRepeat():State = state(parent = BackgroundGamesLow){
         furhat.say({
             +voice?.style(lowsuggestion, AzureVoice.Style.EXCITED)!!
             +delay(500)
-            +voice?.style("What do younthink we should?", AzureVoice.Style.EXCITED)!!
+            +voice?.style("What do you think we should?", AzureVoice.Style.EXCITED)!!
         })
         call(LowGazeActions())
         goto(LowGameListen)
@@ -593,7 +597,11 @@ val LowGameDecision = state(parent = BackgroundGamesLow) {
         }
         else {
             if (switchH == 1 || switchL == 1) {
-                goto(Ending)
+                if (hasnoname == true) {
+                    goto(endingnoname)
+                } else {
+                    goto(endingname)
+                }
             } else {
                 if (hasnoname == true) {
                     goto(Breaknoname)
@@ -609,29 +617,14 @@ val LowGameDecision = state(parent = BackgroundGamesLow) {
 }
 
 
-val Ending: State = state(parent = Introduction) {
-    onEntry {
-        furhat.say({
-            +voice?.style("Those were some good games, How did you feel about it?", AzureVoice.Style.FRIENDLY)!!
-        })
-    }
-    onButton("Press When Participant Is Done") {
-
-        if (hasnoname == true) {
-            goto(endingnoname)
-        } else {
-            goto(endingname)
-        }
-
-    }
-}
 
 val endingname: State = state(parent = Introduction) {
     onEntry {
         furhat.say({
             +attend(users.current)
-            +voice?.style("Well It was great working with you $nameglobal",AzureVoice.Style.FRIENDLY)!!
-            +voice?.style("Have a good rest of your day!",AzureVoice.Style.FRIENDLY)!!
+            +voice?.style("Well those were some good games, I really enjoyed playing with you $nameglobal. See you soon!",
+                AzureVoice.Style.FRIENDLY
+            )!!
         })
         goto(Idle)
     }
@@ -640,8 +633,9 @@ val endingnoname: State = state(parent = Introduction) {
     onEntry {
         furhat.say({
             +attend(users.current)
-            +voice?.style("Well It was great working with you",AzureVoice.Style.FRIENDLY)!!
-            +voice?.style("Have a good rest of your day!",AzureVoice.Style.FRIENDLY)!!
+            +voice?.style("Well those were some good games, I really enjoyed playing with you. See you soon!",
+                AzureVoice.Style.FRIENDLY
+            )!!
         })
         goto(Idle)
     }
