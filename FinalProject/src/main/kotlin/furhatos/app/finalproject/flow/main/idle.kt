@@ -48,6 +48,11 @@ var firstgameguess: Boolean = true
 var firstgameguess1: Boolean = false
 var firstgameguess2: Boolean = false
 var outofrangecount: Int = 0
+var gameoneguesses: Int = 0
+var gametwoguesses: Int = 0
+var gamethreeguesses: Int = 0
+var humanagreedwithrobot: Int = 0
+
 fun generateRandomNumber(min: Int, max: Int): Int {
     return Random.nextInt(min, max + 1)
 }
@@ -453,7 +458,11 @@ val HighGameListen = state(parent = BackgroundGamesHigh) {
         furhat.listen(timeout = 30000)
     }
     onResponse<Number> {
+        numberofguesses += 1
         guessedNumber = it.intent.value!!
+        if(suggestedNumber == guessedNumber){
+            humanagreedwithrobot += 1
+        }
         if(guessedNumber < lowerBound || guessedNumber > upperBound){
             outofrangecount += 1
             when (outofrangecount) {
@@ -504,9 +513,27 @@ val HighGameDecision = state(parent = BackgroundGamesHigh) {
     }
 
     onButton("Correct") {
+        when (gamecount) {
+            0 -> {
+                gameoneguesses = numberofguesses
+                println("Total Number of Guesses For Game 1: $gameoneguesses")
+                println("Human Agreed With Robot For Game 1: $humanagreedwithrobot")
+            }
+            1 -> {
+                gametwoguesses = numberofguesses
+                println("Total Number of Guesses For Game 2: $gametwoguesses")
+                println("Human Agreed With Robot For Game 2: $humanagreedwithrobot")
+            }
+            2 -> {
+                gamethreeguesses = numberofguesses
+                println("Total Number of Guesses For Game 3: $gamethreeguesses")
+                println("Human Agreed With Robot For Game 3: $humanagreedwithrobot")
+            }
+        }
         numberofguesses = 0
         upperBound = 100
         lowerBound = 10
+        humanagreedwithrobot = 0
         correctwinstatementh = correctwinstatementhigh.random(Random)
         furhat.say({ +voice?.style(correctwinstatementh, AzureVoice.Style.FRIENDLY)!!})
         gamecount += 1
@@ -515,6 +542,9 @@ val HighGameDecision = state(parent = BackgroundGamesHigh) {
         }
         else {
             if (switchL == 1 || switchH == 1) {
+                gameoneguesses = 0
+                gametwoguesses = 0
+                gamethreeguesses = 0
                 if (hasnoname == true) {
                     goto(endingnoname)
                 } else {
@@ -564,8 +594,12 @@ val LowGameListen = state(parent = BackgroundGamesLow) {
         call(LowGazeActions())
     }
     onResponse<Number> {
+        numberofguesses += 1
         guessedNumber = it.intent.value!!
-            goto(LowGameDecision)
+        if(suggestedNumber == guessedNumber){
+            humanagreedwithrobot += 1
+        }
+        goto(LowGameDecision)
     }
     onResponse{
         goto(currentState)
@@ -586,9 +620,27 @@ val LowGameDecision = state(parent = BackgroundGamesLow) {
     }
 
     onButton ("Correct") { call(LowGazeActions())
+        when (gamecount) {
+            0 -> {
+                gameoneguesses = numberofguesses
+                println("Total Number of Guesses For Game 1: $gameoneguesses")
+                println("Human Agreed With Robot For Game 1: $humanagreedwithrobot")
+            }
+            1 -> {
+                gametwoguesses = numberofguesses
+                println("Total Number of Guesses For Game 2: $gametwoguesses")
+                println("Human Agreed With Robot For Game 2: $humanagreedwithrobot")
+            }
+            2 -> {
+                gamethreeguesses = numberofguesses
+                println("Total Number of Guesses For Game 3: $gamethreeguesses")
+                println("Human Agreed With Robot For Game 3: $humanagreedwithrobot")
+            }
+        }
         upperBound = 100
         lowerBound = 10
         numberofguesses = 0
+        humanagreedwithrobot = 0
         correctwinstatementl = correctwinstatementlow.random(Random)
         furhat.say({ +voice?.style(correctwinstatementl, AzureVoice.Style.EXCITED)!!})
         gamecount += 1
@@ -597,6 +649,9 @@ val LowGameDecision = state(parent = BackgroundGamesLow) {
         }
         else {
             if (switchH == 1 || switchL == 1) {
+                gameoneguesses = 0
+                gametwoguesses = 0
+                gamethreeguesses = 0
                 if (hasnoname == true) {
                     goto(endingnoname)
                 } else {
