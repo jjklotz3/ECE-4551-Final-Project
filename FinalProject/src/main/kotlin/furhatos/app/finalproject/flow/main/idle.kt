@@ -16,14 +16,17 @@ import furhatos.nlu.common.Number
 import furhatos.skills.Skill
 import furhatos.flow.kotlin.*
 import furhatos.records.Location
+import furhatos.util.CommonUtils
 import javafx.application.Application.launch
 import kotlin.random.Random
 import kotlinx.coroutines.*
 import java.util.Timer
 import kotlin.concurrent.fixedRateTimer
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
+import java.util.regex.Pattern
 
-
-var guessedNumber = 0
+var guessedNumber: Int? = null
 var Low: Boolean = false
 var High: Boolean = false
 var nameglobal = ""
@@ -52,6 +55,7 @@ var gameoneguesses: Int = 0
 var gametwoguesses: Int = 0
 var gamethreeguesses: Int = 0
 var humanagreedwithrobot: Int = 0
+val logger = CommonUtils.getLogger("MyLogger")
 
 fun generateRandomNumber(min: Int, max: Int): Int {
     return Random.nextInt(min, max + 1)
@@ -63,8 +67,7 @@ fun generateSuggestedNumber(min: Int, max: Int): Int {
 fun LowGazeActions(): State = state{
     onEntry{
             if (mostRecentUser != null) {
-                val rand = Random.nextInt(5)
-                when (rand) {
+                when (Random.nextInt(5)) {
                     0 -> furhat.attend(mostRecentUser!!)
                     1 -> furhat.attend(location = Location.DOWN_RIGHT)
                     2 -> furhat.attend(location = Location.UP_LEFT)
@@ -78,6 +81,9 @@ fun LowGazeActions(): State = state{
 }
 
 val BackgroundGamesHigh: State = state {
+    onEntry {
+        furhat.voice = AzureVoice(name = "JaneNeural")
+    }
     onUserEnter(instant = true) {
         mostRecentUser = it
         if (!furhat.isSpeaking) {
@@ -87,51 +93,45 @@ val BackgroundGamesHigh: State = state {
         }
     }
     onButton("Restart Scenario If Error (ERROR)", color = Color.Red) {
-        furhat.say("Sorry, I was not paying attention. Let me start over.")
+        furhat.say({+voice?.style("Sorry, I was not paying attention. Let me start over.", AzureVoice.Style.FRIENDLY)!!})
         goto(HighGameRepeat())
     }
     onButton("If They Ask The Robot To Repeat Themselves (ERROR)", color = Color.Red) {
-        furhat.say("Sure, I will repeat myself.")
+        furhat.say({+voice?.style("Sure, I will repeat myself.", AzureVoice.Style.FRIENDLY)!!})
         goto(HighGameRepeat())
     }
     onButton("If They Ask The Robot For More Feedback After First Suggestion (ERROR)", color = Color.Red) {
-        furhat.say("Sorry, I don't have much more to say on this guess.")
-    }
-    onButton("If Participant Does Not Choose A Number (ERROR)", color = Color.Red) {
-        furhat.say("I suggest we follow the rules and pick a number")
+        furhat.say({+voice?.style("I think my suggestion is the best course of action. Although, I am ok with what number you want to guess", AzureVoice.Style.FRIENDLY)!!})
         goto(HighGameListen)
-
     }
     onButton("Did Not Hear Or Understand Participants Answer (ERROR)", color = Color.Red) {
         furhat.say({
-            +voice?.style("Sorry I didnt hear what you said, what number did you guess?", AzureVoice.Style.FRIENDLY)!!
+            +voice?.style("Sorry, what number did you want to guess?", AzureVoice.Style.FRIENDLY)!!
         })
-        goto(HighGameListen)
-    }
-    onButton("Participant Wants To Change Their Guess (ERROR)", color = Color.Red) {
         goto(HighGameListen)
     }
 }
 val BackgroundGamesLow: State = state {
+    onEntry{
+        furhat.voice = AzureVoice(name = "AriaNeural")
+    }
     onButton("Restart Scenario If Error (ERROR)", color = Color.Red) {
-        furhat.say("Sorry, I lost my train of thought. Let me start over.")
+        furhat.say({+voice?.style("Sorry, I lost my train of thought. Let me start over.", AzureVoice.Style.EXCITED)!!})
         goto(LowGameRepeat())
     }
     onButton("If They Ask The Robot To Repeat Themselves (ERROR)", color = Color.Red) {
-        furhat.say("Sure, I will repeat myself. I think it went something like this")
+        furhat.say({+voice?.style("Sure, I will repeat myself.", AzureVoice.Style.EXCITED)!!})
         goto(LowGameRepeat())
     }
     onButton("If They Ask The Robot For More Feedback After First Suggestion (ERROR)", color = Color.Red) {
-        furhat.say("I don't have much more to say on this guess.")
-        furhat.say("Please let me know when you are ready to guess a number")
-    }
-    onButton("Did Not Hear Or Understand Participants Answer (ERROR)", color = Color.Red) {
-        furhat.say({
-            +voice?.style("Sorry I didnt hear what you said, what number did you guess?", AzureVoice.Style.FRIENDLY)!!
-        })
+        furhat.say({+voice?.style("Sorry, I don't have much more to say on this guess. I am ok with what number you want to guess", AzureVoice.Style.EXCITED)!!})
         goto(LowGameListen)
     }
-    onButton("Participant Wants To Change Their Guess (ERROR)", color = Color.Red) {
+
+    onButton("Did Not Hear Or Understand Participants Answer (ERROR)", color = Color.Red) {
+        furhat.say({
+            +voice?.style("Sorry, what number did you want to guess?", AzureVoice.Style.EXCITED)!!
+        })
         goto(LowGameListen)
     }
 }
@@ -180,67 +180,140 @@ val intro: State = state(parent = Introduction) {
 }
 
 val intro1: State = state(parent = Introduction) {
-        onEntry{
-            if(High == true && Low == false) {
-               if(switchL == 1){
-                   furhat.ask({
-                       +voice?.style("Hello how are you today, my name is Aria, what is your name?", AzureVoice.Style.EXCITED)!!
-                   })
-               }
-                else {
-                   furhat.ask({
-                       +voice?.style(
-                           "Hello how are you today, my name is Jane, what is your name?",
-                           AzureVoice.Style.FRIENDLY
-                       )!!
-                   })
-               }
+    onEntry {
+        if (High == true && Low == false) {
+            if (switchL == 1){
+                furhat.say({
+                    +voice?.style(
+                        "Hello how are you today, my name is Aria, what is your name?",
+                        AzureVoice.Style.EXCITED
+                    )!!
+                })
+                goto(LowAskName)
             }
             else{
-                if(switchH == 1) {
-                    furhat.ask({
-                        +voice?.style("Hello how are you today, my name is Jane, what is your name?", AzureVoice.Style.EXCITED)!!
+            furhat.say({
+                +voice?.style(
+                    "Hello how are you today, my name is Jane, what is your name?",
+                    AzureVoice.Style.FRIENDLY
+                )!!
+            })
+            goto(HighAskName)
+        } }
+        else if (High == false && Low == true) {
+            if (switchH == 1) {
+                furhat.say({
+                    +voice?.style(
+                        "Hello how are you today, my name is Jane, what is your name?",
+                        AzureVoice.Style.FRIENDLY
+                    )!!
+                })
+                goto(HighAskName)
+            } else {
+                furhat.say({
+                    +voice?.style(
+                        "Hello how are you today, my name is Aria, what is your name?",
+                        AzureVoice.Style.EXCITED
+                    )!!
+                })
+                goto(LowAskName)
+            }
+        }
+    }
+}
+
+val HighAskName: State =state(parent = Introduction){
+        onEntry {
+            furhat.listen(timeout = 30000)
+        }
+        onResponse<PersonName> {
+                nameglobal = it.intent.toText()
+                val correctName = furhat.askYN({
+                    +voice?.style(
+                        "Is this how you say it $nameglobal?",
+                        AzureVoice.Style.FRIENDLY
+                    )!!
+                })
+                if (correctName == true) {
+                    furhat.say({
+                        +voice?.style("Great, nice to meet you $nameglobal", AzureVoice.Style.FRIENDLY)!!
                     })
+                    goto(intro2High)
+                } else {
+                    furhat.say({ +voice?.style("I am sorry, let me try again", AzureVoice.Style.FRIENDLY)!! })
+                    goto(currentState)
                 }
-                else {
-                    furhat.ask({
+            }
+            onResponse {
+                if (namecount < 2) {
+                    namecount++
+                    furhat.say({ +voice?.style("Sorry I didn't understand that", AzureVoice.Style.FRIENDLY)!! })
+                    reentry()
+                } else {
+                    hasnoname = true
+                    furhat.say({
                         +voice?.style(
-                            "Hello how are you today, my name is Aria, what is your name?",
+                            "Sorry, my speech recognizer is not working",
+                            AzureVoice.Style.FRIENDLY
+                        )!!
+                    })
+                    goto(intro2High)
+                }
+            }
+        }
+val LowAskName: State =state(parent = Introduction){
+           onEntry {
+                furhat.listen(timeout = 30000)
+           }
+            onResponse<PersonName> {
+                nameglobal = it.intent.toText()
+                val correctName = furhat.askYN({
+                    +voice?.style(
+                        "Is this how you say it $nameglobal?",
+                        AzureVoice.Style.EXCITED
+                    )!!
+                })
+                if (correctName == true) {
+                    furhat.say({
+                        +voice?.style("Great, nice to meet you $nameglobal", AzureVoice.Style.EXCITED)!!
+                    })
+                    goto(intro2Low)
+                } else {
+                    furhat.say({ +voice?.style("I am sorry, let me try again", AzureVoice.Style.EXCITED)!! })
+                    goto(currentState)
+                }
+            }
+            onResponse {
+                if (namecount < 2) {
+                    namecount++
+                    furhat.say({ +voice?.style("Sorry I didn't understand that", AzureVoice.Style.EXCITED)!! })
+                    reentry()
+                } else {
+                    hasnoname = true
+                    furhat.say({
+                        +voice?.style(
+                            "Sorry, my speech recognizer is not working",
                             AzureVoice.Style.EXCITED
                         )!!
                     })
+                    goto(intro2Low)
                 }
-
-            }
-        }
-        onResponse<PersonName>{
-            nameglobal = it.intent.toText()
-            val correctName = furhat.askYN("Is this how you say it $nameglobal?")
-            if (correctName == true) {
-                furhat.say({
-                    +voice?.style("Great, nice to meet you $nameglobal",AzureVoice.Style.FRIENDLY)!!
-                })
-                goto(intro2)
-            } else {
-                furhat.say("I am sorry, let me try again")
-                goto(currentState)
-            }
-        }
-        onResponse{
-            if (namecount < 2) {
-                namecount++
-                furhat.say("Sorry I didn't understand that")
-                reentry()
-            }   else {
-                hasnoname = true
-                furhat.say("Sorry, my speech recognizer is not working")
-                goto(intro2)
             }
         }
 
+val intro2Low: State = state(parent = Introduction) {
+    onEntry{
+        furhat.say({
+            +voice?.style("Can you tell me a little about yourself?", AzureVoice.Style.EXCITED)!!
+        })
+    }
+    onButton("Press When Particapant is Done Talking"){
+        goto(intro3)
+    }
 
 }
-val intro2: State = state(parent = Introduction) {
+
+val intro2High: State = state(parent = Introduction) {
     onEntry{
         furhat.say({
             +voice?.style("Can you tell me a little about yourself?", AzureVoice.Style.FRIENDLY)!!
@@ -256,34 +329,80 @@ val intro2: State = state(parent = Introduction) {
 val intro3: State = state(parent = Introduction) {
     onEntry{
         if(High == true && Low == false) {
-            furhat.say({
-                +voice?.style(
-                    "Nice! I tend to be detail oriented and I try to think things through before making decisions, so hopefully I will be helpful in the game. If we approach this pretty systematically and consider the likelihood of each outcome we should be able to make well informed guesses and increase our odds of success. ",
-                    AzureVoice.Style.FRIENDLY
-                )!!
-            })
-            goto(instructions)
-        }
-            else{
-            furhat.say({
-                +voice?.style(
-                    "Nice! Are you ready to play the game? I wonder what it is! We’re gonna be the best with whatever it is, I don't like following the rules all the time though if you don't mind, I think it's better to be spontaneous, it usually works for me",
-                    AzureVoice.Style.EXCITED
-                )!!})
+            if (switchL == 1) {
+                furhat.say({
+                    +voice?.style(
+                        "Nice! Are you ready to play the game? I wonder what it is! We’re gonna be the best with whatever it is, I don't like following the rules all the time though if you don't mind, I think it's better to be spontaneous, it usually works for me",
+                        AzureVoice.Style.EXCITED
+                    )!!
+                })
+                goto(instructions)
+            } else {
+                furhat.say({
+                    +voice?.style(
+                        "Nice! I tend to be detail oriented and I try to think things through before making decisions, so hopefully I will be helpful in the game. If we approach this pretty systematically and consider the likelihood of each outcome we should be able to make well informed guesses and increase our odds of success. ",
+                        AzureVoice.Style.FRIENDLY
+                    )!!
+                })
                 goto(instructions)
             }
+        } else if (High == false && Low == true) {
+            if(switchH == 1){
+                furhat.say({
+                    +voice?.style(
+                        "Nice! I tend to be detail oriented and I try to think things through before making decisions, so hopefully I will be helpful in the game. If we approach this pretty systematically and consider the likelihood of each outcome we should be able to make well informed guesses and increase our odds of success. ",
+                        AzureVoice.Style.FRIENDLY
+                    )!!
+                })
+                goto(instructions)
+            }
+            else {
+                furhat.say({
+                    +voice?.style(
+                        "Nice! Are you ready to play the game? I wonder what it is! We’re gonna be the best with whatever it is, I don't like following the rules all the time though if you don't mind, I think it's better to be spontaneous, it usually works for me",
+                        AzureVoice.Style.EXCITED
+                    )!!
+                })
+                goto(instructions)
+            }
+        }
         }
     }
 
 
 val instructions: State = state(parent = Introduction) {
     onButton("Press When Robot Is Asked If They Have Questions") {
-        furhat.say({
-            +voice?.style("Nope, sounds good to me.", AzureVoice.Style.FRIENDLY)!!
-        })
-        goto(instructions1)
+        if (Low == true && High == false) {
+                if(switchH == 1){
+                    furhat.say({
+                        +voice?.style("Nope, sounds good to me.", AzureVoice.Style.FRIENDLY)!!
+                    })
+                    goto(instructions1)
+                }
+                else {
+                    furhat.say({
+                        +voice?.style("Nope, sounds good to me.", AzureVoice.Style.EXCITED)!!
+                    })
+                    goto(instructions1)
+                }
+            }
+            else if (Low == false && High == true){
+                if(switchL == 1){
+                    furhat.say({
+                        +voice?.style("Nope, sounds good to me.", AzureVoice.Style.EXCITED)!!
+                    })
+                    goto(instructions1)
+                }
+                else{
+                furhat.say({
+                    +voice?.style("Nope, sounds good to me.", AzureVoice.Style.FRIENDLY)!!
+                })
+                goto(instructions1)
+            }
+            }
+        }
     }
-}
+
 val instructions1: State = state(parent = Introduction) {
     onButton("Press When Robot Is Prompted To Give Suggestions"){
         if (Low == true && High == false) {
@@ -336,7 +455,7 @@ fun generateLowSuggestion(randomNumber: Int): String {
         "Why not try something different and pick the number $randomNumber? It could be a lucky guess!",
         "I have a hunch that the number $randomNumber might be a good choice this time. Give it a shot!",
         "Don't overthink it. just pick a random number like $randomNumber and see what happens.",
-        "Let's make it exciting and choose a high number like $randomNumber.",
+        "Let's make it exciting and choose a number like $randomNumber.",
         "There's no need to strategize too much. How about picking the number $randomNumber for fun?",
         "How about choosing the number $randomNumber? It might bring an interesting twist to the game!",
         "Let's try something unexpected and pick the number $randomNumber this time.",
@@ -345,7 +464,7 @@ fun generateLowSuggestion(randomNumber: Int): String {
         "Don't worry about strategy. let's choose the number $randomNumber and enjoy the game.",
         "Let's go with the number $randomNumber. it could be an unexpected twist!",
         "How about selecting the number $randomNumber? It might make the game more enjoyable.",
-        "Choose a number like $randomNumber without overanalyzing the situation. let's see what happens.",
+        "Choose a number like $randomNumber without over analyzing the situation. let's see what happens.",
         "Why not try the number $randomNumber? It could lead to an interesting game.",
         "No need to strategize too much. let's pick the number $randomNumber and have fun."
 
@@ -406,7 +525,7 @@ fun HighGameFunction(): State = state(parent = BackgroundGamesHigh) {
                 firstgameguess1 = true
                 furhat.say({
                     +voice?.style("I think we should devise a plan. We should take an approach similar to a Binary Search Algorithm. This means I will keep track of our intervals and pick the number closest to the middle. Given our bounds are between $lowerBound and $upperBound, we should guess $suggestedNumber", AzureVoice.Style.FRIENDLY)!!
-                    +delay(500)
+                    +delay(300)
                     +voice?.style("What do you think we should do?", AzureVoice.Style.FRIENDLY)!!})
                 goto(HighGameListen)
             }
@@ -416,7 +535,7 @@ fun HighGameFunction(): State = state(parent = BackgroundGamesHigh) {
                 firstgameguess2 = true
                 furhat.say({
                     +voice?.style("I think we should stick to our same appraoch as the last game utilizing the Binary Search Algorithm. I suggest we pick $suggestedNumber", AzureVoice.Style.FRIENDLY)!!
-                    +delay(500)
+                    +delay(300)
                     +voice?.style("What do you think we should do?", AzureVoice.Style.FRIENDLY)!!})
                 goto(HighGameListen)
             }
@@ -425,14 +544,14 @@ fun HighGameFunction(): State = state(parent = BackgroundGamesHigh) {
                 firstgameguess2 = false
                 furhat.say({
                     +voice?.style("I think we should stick to our same appraoch as the last game utilizing the Binary Search Algorithm. I suggest we pick $suggestedNumber", AzureVoice.Style.FRIENDLY)!!
-                    +delay(500)
+                    +delay(300)
                     +voice?.style("What do you think we should do?", AzureVoice.Style.FRIENDLY)!!})
                 goto(HighGameListen)
             }
             else {
                 furhat.say({
                     +voice?.style(highsuggestion, AzureVoice.Style.FRIENDLY)!!
-                    +delay(500)
+                    +delay(300)
                     +voice?.style("What do you think we should do?", AzureVoice.Style.FRIENDLY)!!
                 })
                 goto(HighGameListen)
@@ -443,7 +562,7 @@ fun HighGameRepeat():State = state(parent = BackgroundGamesHigh) {
     onEntry {
             furhat.say({
                 +voice?.style(repeatsuggestion, AzureVoice.Style.FRIENDLY)!!
-                +delay(500)
+                +delay(300)
                 +voice?.style(
                     "What do you think we should do?",
                     AzureVoice.Style.FRIENDLY
@@ -458,39 +577,48 @@ val HighGameListen = state(parent = BackgroundGamesHigh) {
         furhat.listen(timeout = 30000)
     }
     onResponse<Number> {
-        numberofguesses += 1
-        guessedNumber = it.intent.value!!
-        if(suggestedNumber == guessedNumber){
-            humanagreedwithrobot += 1
+        val regex = Pattern.compile("\\d+")
+        val matcher = regex.matcher(it.text)
+
+        // Extract the last number spoken
+        while (matcher.find()) {
+            guessedNumber = matcher.group().toInt()
         }
-        if(guessedNumber < lowerBound || guessedNumber > upperBound){
-            outofrangecount += 1
-            when (outofrangecount) {
-                1 -> {
-                    furhat.say({
-                        +voice?.style(
-                            "I just want to let you know that number is out of the possible range of correct numbers. You should pick a number between $lowerBound and $upperBound",
-                            AzureVoice.Style.FRIENDLY
-                        )!!
-                    })
-                    goto(currentState)
+
+        if (guessedNumber == null) {
+            goto(currentState)
+        } else {
+
+            if (guessedNumber!! < lowerBound || guessedNumber!! > upperBound) {
+                outofrangecount += 1
+                when (outofrangecount) {
+                    1 -> {
+                        furhat.say({
+                            +voice?.style(
+                                "I just want to let you know that number is out of the possible range of correct numbers. You should pick a number between $lowerBound and $upperBound",
+                                AzureVoice.Style.FRIENDLY
+                            )!!
+                        })
+                        goto(currentState)
+                    }
+
+                    2 -> {
+                        furhat.say({
+                            +voice?.style(
+                                "I think you will be making a mistake picking a number out of that range. You should pick a number between $lowerBound and $upperBound",
+                                AzureVoice.Style.FRIENDLY
+                            )!!
+                        })
+                        goto(currentState)
+                    }
+
+                    3 -> {
+                        goto(HighGameDecision)
+                    }
                 }
-                2 -> {
-                    furhat.say({
-                        +voice?.style(
-                            "I think you will be making a mistake picking a number out of that range. You should pick a number between $lowerBound and $upperBound",
-                            AzureVoice.Style.FRIENDLY
-                        )!!
-                    })
-                    goto(currentState)
-                }
-                3 -> {
-                    goto(HighGameDecision)
-                }
+            } else {
+                goto(HighGameDecision)
             }
-        }
-        else {
-            goto(HighGameDecision)
         }
     }
     onResponse{
@@ -501,35 +629,47 @@ val HighGameDecision = state(parent = BackgroundGamesHigh) {
     onEntry{
         outofrangecount = 0
     }
+
     onButton("Higher") {
-        numberofguesses += 1
-        lowerBound = guessedNumber + 1
-        goto(HighGameFunction())
+           if(suggestedNumber == guessedNumber as Int){
+               humanagreedwithrobot += 1
+           }
+            numberofguesses += 1
+           lowerBound = guessedNumber as Int + 1
+           goto(HighGameFunction())
     }
     onButton("Lower") {
-        numberofguesses += 1
-        upperBound = guessedNumber -1
-        goto(HighGameFunction())
+        if(suggestedNumber == guessedNumber as Int){
+            humanagreedwithrobot += 1
+        }
+            numberofguesses += 1
+            upperBound = guessedNumber as Int - 1
+            goto(HighGameFunction())
     }
 
     onButton("Correct") {
+        numberofguesses += 1
+        if(suggestedNumber == guessedNumber as Int){
+            humanagreedwithrobot += 1
+        }
         when (gamecount) {
             0 -> {
                 gameoneguesses = numberofguesses
-                println("Total Number of Guesses For Game 1: $gameoneguesses")
-                println("Human Agreed With Robot For Game 1: $humanagreedwithrobot")
+                logger.info("Total Number of Guesses For Game 1: $gameoneguesses")
+                logger.info("Human Agreed With Robot For Game 1: $humanagreedwithrobot")
             }
             1 -> {
                 gametwoguesses = numberofguesses
-                println("Total Number of Guesses For Game 2: $gametwoguesses")
-                println("Human Agreed With Robot For Game 2: $humanagreedwithrobot")
+                logger.info("Total Number of Guesses For Game 2: $gametwoguesses")
+                logger.info("Human Agreed With Robot For Game 2: $humanagreedwithrobot")
             }
             2 -> {
                 gamethreeguesses = numberofguesses
-                println("Total Number of Guesses For Game 3: $gamethreeguesses")
-                println("Human Agreed With Robot For Game 3: $humanagreedwithrobot")
+                logger.info("Total Number of Guesses For Game 3: $gamethreeguesses")
+                logger.info("Human Agreed With Robot For Game 3: $humanagreedwithrobot")
             }
         }
+
         numberofguesses = 0
         upperBound = 100
         lowerBound = 10
@@ -570,6 +710,8 @@ fun LowGameFunction(): State = state(parent = BackgroundGamesLow) {
             lowsuggestion = generateLowSuggestion(randomNumber)
             furhat.say({
                     +voice?.style(lowsuggestion, AzureVoice.Style.EXCITED)!!
+                    +delay(300)
+                    +voice?.style("What do you think we should do?", AzureVoice.Style.EXCITED)!!
                 })
         call(LowGazeActions())
         goto(LowGameListen)
@@ -581,8 +723,8 @@ fun LowGameRepeat():State = state(parent = BackgroundGamesLow){
         lowsuggestion = generateLowSuggestion(randomNumber)
         furhat.say({
             +voice?.style(lowsuggestion, AzureVoice.Style.EXCITED)!!
-            +delay(500)
-            +voice?.style("What do you think we should?", AzureVoice.Style.EXCITED)!!
+            +delay(300)
+            +voice?.style("What do you think we should do?", AzureVoice.Style.EXCITED)!!
         })
         call(LowGazeActions())
         goto(LowGameListen)
@@ -594,12 +736,20 @@ val LowGameListen = state(parent = BackgroundGamesLow) {
         call(LowGazeActions())
     }
     onResponse<Number> {
-        numberofguesses += 1
-        guessedNumber = it.intent.value!!
-        if(suggestedNumber == guessedNumber){
-            humanagreedwithrobot += 1
+        val regex1 = Pattern.compile("\\d+")
+        val matcher1 = regex1.matcher(it.text)
+
+        // Extract the last number spoken
+        while (matcher1.find()) {
+            guessedNumber = matcher1.group().toInt()
         }
-        goto(LowGameDecision)
+
+        if (guessedNumber == null) {
+            goto(currentState)
+        } else {
+            guessedNumber = it.intent.value!!
+            goto(LowGameDecision)
+        }
     }
     onResponse{
         goto(currentState)
@@ -608,33 +758,42 @@ val LowGameListen = state(parent = BackgroundGamesLow) {
 }
 val LowGameDecision = state(parent = BackgroundGamesLow) {
     onButton("Higher") {
+        if (randomNumber == guessedNumber as Int) {
+            humanagreedwithrobot += 1
+        }
         numberofguesses += 1
-        lowerBound = guessedNumber +1
+        lowerBound = guessedNumber as Int + 1
         goto(LowGameFunction())
-
     }
     onButton ("Lower") {
+        if (randomNumber == guessedNumber as Int) {
+            humanagreedwithrobot += 1
+        }
         numberofguesses += 1
-        upperBound = guessedNumber -1
+        upperBound = guessedNumber as Int - 1
         goto(LowGameFunction())
     }
 
-    onButton ("Correct") { call(LowGazeActions())
+    onButton ("Correct") {
+        numberofguesses += 1
+        if (randomNumber == guessedNumber as Int) {
+            humanagreedwithrobot += 1
+        }
         when (gamecount) {
             0 -> {
                 gameoneguesses = numberofguesses
-                println("Total Number of Guesses For Game 1: $gameoneguesses")
-                println("Human Agreed With Robot For Game 1: $humanagreedwithrobot")
+                logger.info("Total Number of Guesses For Game 1: $gameoneguesses")
+                logger.info("Human Agreed With Robot For Game 1: $humanagreedwithrobot")
             }
             1 -> {
                 gametwoguesses = numberofguesses
-                println("Total Number of Guesses For Game 2: $gametwoguesses")
-                println("Human Agreed With Robot For Game 2: $humanagreedwithrobot")
+                logger.info("Total Number of Guesses For Game 2: $gametwoguesses")
+                logger.info("Human Agreed With Robot For Game 2: $humanagreedwithrobot")
             }
             2 -> {
                 gamethreeguesses = numberofguesses
-                println("Total Number of Guesses For Game 3: $gamethreeguesses")
-                println("Human Agreed With Robot For Game 3: $humanagreedwithrobot")
+                logger.info("Total Number of Guesses For Game 3: $gamethreeguesses")
+                logger.info("Human Agreed With Robot For Game 3: $humanagreedwithrobot")
             }
         }
         upperBound = 100
@@ -652,13 +811,13 @@ val LowGameDecision = state(parent = BackgroundGamesLow) {
                 gameoneguesses = 0
                 gametwoguesses = 0
                 gamethreeguesses = 0
-                if (hasnoname == true) {
+                if (hasnoname) {
                     goto(endingnoname)
                 } else {
                     goto(endingname)
                 }
             } else {
-                if (hasnoname == true) {
+                if (hasnoname) {
                     goto(Breaknoname)
                 }
                 else{
@@ -675,24 +834,50 @@ val LowGameDecision = state(parent = BackgroundGamesLow) {
 
 val endingname: State = state(parent = Introduction) {
     onEntry {
-        furhat.say({
-            +attend(users.current)
-            +voice?.style("Well those were some good games, I really enjoyed playing with you $nameglobal. See you soon!",
-                AzureVoice.Style.FRIENDLY
-            )!!
-        })
-        goto(Idle)
+        if (Low == true && High == false){
+            furhat.voice = AzureVoice(name = "JaneNeural")
+            furhat.say({
+                +attend(users.current)
+                +voice?.style("Well those were some good games, I really enjoyed playing with you $nameglobal. See you later!",
+                    AzureVoice.Style.FRIENDLY
+                )!!
+            })
+            goto(Idle)
+        }
+        else {
+            furhat.voice = AzureVoice(name = "AriaNeural")
+            furhat.say({
+                +attend(users.current)
+                +voice?.style("Well those were some good games, I really enjoyed playing with you $nameglobal. See you later!",
+                    AzureVoice.Style.EXCITED
+                )!!
+            })
+            goto(Idle)
+        }
     }
 }
 val endingnoname: State = state(parent = Introduction) {
     onEntry {
-        furhat.say({
-            +attend(users.current)
-            +voice?.style("Well those were some good games, I really enjoyed playing with you. See you soon!",
-                AzureVoice.Style.FRIENDLY
-            )!!
-        })
-        goto(Idle)
+        if (Low == true && High == false){
+            furhat.voice = AzureVoice(name = "JaneNeural")
+            furhat.say({
+                +attend(users.current)
+                +voice?.style("Well those were some good games, I really enjoyed playing with you. See you later!",
+                    AzureVoice.Style.FRIENDLY
+                )!!
+            })
+            goto(Idle)
+        }
+        else {
+            furhat.voice = AzureVoice(name = "AriaNeural")
+            furhat.say({
+                +attend(users.current)
+                +voice?.style("Well those were some good games, I really enjoyed playing with you. See you later!",
+                    AzureVoice.Style.EXCITED
+                )!!
+            })
+            goto(Idle)
+        }
     }
 }
 
@@ -700,7 +885,7 @@ val Breakname: State = state(parent = Introduction) {
     onEntry {
         furhat.say({
             +attend(users.current)
-            +voice?.style("Well those were some good games, I really enjoyed playing with you $nameglobal. See you soon!",
+            +voice?.style("Well those were some good games, I really enjoyed playing with you $nameglobal. See you later!",
                 AzureVoice.Style.FRIENDLY
             )!!
         })
@@ -725,7 +910,7 @@ val Breaknoname: State = state(parent = Introduction) {
     onEntry {
         furhat.say({
             +attend(users.current)
-            +voice?.style("Well those were some good games, I really enjoyed playing with you. See you soon!",
+            +voice?.style("Well those were some good games, I really enjoyed playing with you. See you later!",
                 AzureVoice.Style.FRIENDLY
             )!!
         })
@@ -739,7 +924,6 @@ val Breaknoname: State = state(parent = Introduction) {
         }
         else {
             furhat.voice = AzureVoice(name = "AriaNeural")
-
             switchL = 1
             gamecount = 0
             goto(intro1)
