@@ -56,6 +56,7 @@ var gametwoguesses: Int = 0
 var gamethreeguesses: Int = 0
 var humanagreedwithrobot: Int = 0
 val logger = CommonUtils.getLogger("MyLogger")
+var firsterror: Boolean = true
 
 fun generateRandomNumber(min: Int, max: Int): Int {
     return Random.nextInt(min, max + 1)
@@ -105,12 +106,22 @@ val BackgroundGamesHigh: State = state {
         goto(HighGameListen)
     }
     onButton("Did Not Hear Or Understand Participants Answer (ERROR)", color = Color.Red) {
-        furhat.say({
-            +voice?.style("Sorry, what number did you want to guess?", AzureVoice.Style.FRIENDLY)!!
-        })
-        goto(HighGameListen)
+        if(firsterror == true){
+            firsterror = false
+            furhat.say({
+                +voice?.style("Sorry, I cannot hear that well. Can you say the number loud and clear for me please?", AzureVoice.Style.FRIENDLY)!!
+            })
+            goto(HighGameListen)
+        }
+        else {
+            furhat.say({
+                +voice?.style("Sorry, what number did you want to guess?", AzureVoice.Style.FRIENDLY)!!
+            })
+            goto(HighGameListen)
+        }
     }
 }
+
 val BackgroundGamesLow: State = state {
     onEntry{
         furhat.voice = AzureVoice(name = "AriaNeural")
@@ -129,10 +140,19 @@ val BackgroundGamesLow: State = state {
     }
 
     onButton("Did Not Hear Or Understand Participants Answer (ERROR)", color = Color.Red) {
-        furhat.say({
-            +voice?.style("Sorry, what number did you want to guess?", AzureVoice.Style.EXCITED)!!
-        })
-        goto(LowGameListen)
+        if(firsterror == true){
+            firsterror = false
+            furhat.say({
+                +voice?.style("Sorry, I cannot hear that well. Can you say the number loud and clear for me please?", AzureVoice.Style.EXCITED)!!
+            })
+            goto(LowGameListen)
+        }
+        else {
+            furhat.say({
+                +voice?.style("Sorry, what number did you want to guess?", AzureVoice.Style.EXCITED)!!
+            })
+            goto(LowGameListen)
+        }
     }
 }
 val Introduction: State = state {
@@ -405,23 +425,19 @@ val instructions: State = state(parent = Introduction) {
 
 val instructionssublow: State = state(parent = Introduction) {
     onButton("Press When Robot Is Asked If They Have Questions") {
-        if (switchH == 1) {
             furhat.say({
                 +voice?.style("Yea", AzureVoice.Style.EXCITED)!!
             })
             goto(instructions1)
-        }
     }
 }
 
 val instructionssubhigh: State = state(parent = Introduction) {
     onButton("Press When Robot Is Asked If They Have Questions") {
-        if (switchH == 1) {
             furhat.say({
                 +voice?.style("Yes, I am ready to start the game", AzureVoice.Style.FRIENDLY)!!
             })
             goto(instructions1)
-        }
     }
 }
 
@@ -922,12 +938,14 @@ val Breakname: State = state(parent = Introduction) {
             furhat.voice = AzureVoice(name = "JaneNeural")
             switchH = 1
             gamecount = 0
+            firsterror = true
             goto(intro1)
         }
         else {
             furhat.voice = AzureVoice(name = "AriaNeural")
             switchL = 1
             gamecount = 0
+            firsterror = true
             goto(intro1)
         }
     }
@@ -947,12 +965,14 @@ val Breaknoname: State = state(parent = Introduction) {
             furhat.voice = AzureVoice(name = "JaneNeural")
             switchH = 1
             gamecount = 0
+            firsterror = true
             goto(intro1)
         }
         else {
             furhat.voice = AzureVoice(name = "AriaNeural")
             switchL = 1
             gamecount = 0
+            firsterror = true
             goto(intro1)
         }
     }
